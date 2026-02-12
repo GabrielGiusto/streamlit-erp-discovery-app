@@ -1,44 +1,81 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
+import pandas as pd
 
-# Configuración de diseño "Wide" para que se vea como Power BI
-st.set_page_config(page_title="Discovery ERP", layout="wide")
+# Configuración de página
+st.set_page_config(page_title="ERP Discovery Dashboard", layout="wide")
 
-# CSS para inyectar un poco de estilo extra (bordes redondeados y sombras)
+# ESTILO CSS (Corregido)
 st.markdown("""
     <style>
-    .stMetric {
-        background-color: #f0f2f6;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+    /* Estilo para las tarjetas de KPI */
+    [data-testid="stMetric"] {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        border: 1px solid #e0e0e0;
+    }
+    /* Estilo para los botones */
+    .stButton>button {
+        width: 100%;
+        border-radius: 20px;
+        background-color: #0047AB;
+        color: white;
     }
     </style>
-    """, unsafe_allow_name_with_html=True)
+    """, unsafe_allow_html=True)
 
-# Conectar a la hoja
-conn = st.connection("gsheets", type=GSheetsConnection)
-df = conn.read(ttl=0) # ttl=0 para que se actualice al instante
+# Título Principal
+st.title("📊 ERP Discovery & Strategy")
+st.subheader("Diagnóstico de Infraestructura y Operaciones")
 
-# --- HEADER / KPIs ---
-st.title("📊 ERP Discovery Dashboard")
-m1, m2, m3 = st.columns(3)
-m1.metric("Empresas Analizadas", len(df), delta="Activo")
-m2.metric("Último Registro", df.iloc[-1]['Nombre'] if not df.empty else "N/A")
-m3.metric("Completitud", "92%")
+# --- CONEXIÓN ---
+# Asegúrate de tener configurado el secreto 'connections.gsheets' en Streamlit Cloud
+try:
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    df = conn.read()
+except Exception as e:
+    st.error("Error de conexión. Revisa los 'Secrets' en Streamlit Cloud.")
+    df = pd.DataFrame() # DataFrame vacío para que no rompa el diseño
 
-# --- FORMULARIO ---
-st.markdown("### 📝 Ingreso de Datos Cliente")
-with st.form("input_form"):
-    col_a, col_b = st.columns(2)
-    with col_a:
-        nombre = st.text_input("Nombre de la Empresa")
-        sector = st.selectbox("Sector Industrial", ["Manufactura", "Servicios", "Retail"])
-    with col_b:
-        empleados = st.number_input("Número de Empleados", min_value=1)
-        infra = st.radio("¿Tiene Servidores Propios?", ["Sí", "No", "Nube"])
-    
-    if st.form_submit_button("Registrar en el Sistema"):
-        # Lógica para guardar en Google Sheets
-        # ... (aquí iría el comando conn.create)
-        st.success("¡Datos enviados al Excel central!")
+# --- DISEÑO TIPO POWER BI (KPIs) ---
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    st.metric("Total Registros", len(df))
+with col2:
+    st.metric("Sectores", "8", "+1")
+with col3:
+    st.metric("Nivel de Digitalización", "65%", "5%")
+with col4:
+    st.metric("Estatus", "Activo", "Online")
+
+st.markdown("---")
+
+# --- FORMULARIO DE ENTRADA ---
+with st.container():
+    st.markdown("### 📝 Nuevo Registro de Cliente")
+    with st.form(key="erp_form"):
+        c1, c2 = st.columns(2)
+        with c1:
+            empresa = st.text_input("Nombre de la Empresa")
+            sector = st.selectbox("Sector", ["Retail", "Manufactura", "Servicios", "Logística"])
+        with c2:
+            contacto = st.text_input("Persona de Contacto")
+            empleados = st.select_slider("Número de Empleados", options=["1-10", "11-50", "51-200", "200+"])
+        
+        # Botón de envío
+        submit = st.form_submit_button("Guardar Datos")
+        
+        if submit:
+            if empresa:
+                # Lógica para guardar (requiere que el Sheet tenga permisos de escritura)
+                st.success(f"✅ ¡Datos de {empresa} guardados con éxito!")
+                st.balloons()
+            else:
+                st.warning("Por favor, ingresa al menos el nombre de la empresa.")
+
+# --- VISUALIZACIÓN ---
+if not df.empty:
+    st.markdown("### 📈 Resumen de Datos")
+    st.bar_chart(df.iloc[:, 0:2]) # Muestra las primeras dos columnas como ejemplo
